@@ -9,8 +9,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/G-Node/gin-cli/ginclient/log"
-	"github.com/G-Node/gin-cli/gincmd/ginerrors"
+	"github.com/kylekahraman/gin/ginclient/log"
+	"github.com/kylekahraman/gin/gincmd/ginerrors"
 	"github.com/fatih/color"
 	"github.com/shibukawa/configdir"
 	"github.com/spf13/viper"

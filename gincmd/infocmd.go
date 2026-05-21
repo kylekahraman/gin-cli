@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	ginclient "github.com/G-Node/gin-cli/ginclient"
-	"github.com/G-Node/gin-cli/ginclient/config"
+	ginclient "github.com/kylekahraman/gin/ginclient"
+	"github.com/kylekahraman/gin/ginclient/config"
 	"github.com/spf13/cobra"
 )
 

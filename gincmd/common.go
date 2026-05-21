@@ -8,12 +8,14 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
-	ginclient "github.com/G-Node/gin-cli/ginclient"
-	"github.com/G-Node/gin-cli/ginclient/log"
-	"github.com/G-Node/gin-cli/git"
+	ginclient "github.com/kylekahraman/gin/ginclient"
+	"github.com/kylekahraman/gin/ginclient/log"
+	"github.com/kylekahraman/gin/git"
 	"github.com/bbrks/wrap"
 	"github.com/docker/docker/pkg/term"
+	"github.com/dustin/go-humanize"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -382,6 +384,336 @@ func formatOutput(statuschan <-chan git.RepoFileStatus, pstyle printstyle, nitem
 		}
 		Die(fmt.Sprintf("%d operation%s failed", nerrors, plural))
 	}
+}
+
+// printUploadProgress displays an rsync-style live progress view for uploads.
+// Shows current file progress, a file-level progress bar with ETA, and
+// handles resumed/skipped detection.
+func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (filesuccess map[string]bool) {
+	filesuccess = make(map[string]bool)
+	if totalFiles <= 0 {
+		fmt.Println("   Nothing to upload — all files already on remote")
+		return
+	}
+
+	ndigits := len(fmt.Sprintf("%d", totalFiles))
+	dfmt := fmt.Sprintf("%%%dd/%%%dd", ndigits, ndigits)
+
+	// Track state per file
+	type fileState struct {
+		done      bool
+		skipped   bool
+		failed    bool
+		lastPct   string
+		lastBytes int
+		totalSize int
+		rate      string
+		note      string
+	}
+	seen := make(map[string]*fileState)
+
+	var (
+		completed    int
+		skipped      int
+		failed       int
+		startTime    time.Time
+		overallBytes int64
+		firstData    bool
+	)
+
+	// Track the currently-displayed line length for \r clearing
+	lastLineLen := 0
+
+	fmtbytesFn := func(b int64) string {
+		if b < 0 {
+			return "0 B"
+		}
+		return humanize.IBytes(uint64(b))
+	}
+
+	etaFn := func(remBytes int64, rate float64) string {
+		if rate <= 0 || remBytes <= 0 {
+			return ""
+		}
+		secs := float64(remBytes) / rate
+		if secs < 1 {
+			return ""
+		}
+		if secs < 60 {
+			return fmt.Sprintf("%.0fs", secs)
+		}
+		mins := int(secs) / 60
+		secsRem := int(secs) % 60
+		if mins < 60 {
+			return fmt.Sprintf("%dm %ds", mins, secsRem)
+		}
+		hours := mins / 60
+		mins = mins % 60
+		return fmt.Sprintf("%dh %dm", hours, mins)
+	}
+
+	// Build a display closure we can call from both stat events and ticker
+	renderDisplay := func(fname string, fs *fileState, elapsed time.Duration, compl int) {
+		// Part 1: current file info
+		filePart := ""
+		if fname != "" && fs != nil {
+			// Clean up filename: strip " (version: ...)" suffix added by gin-cli
+			showname := fname
+			if idx := strings.Index(showname, " (version: "); idx > 0 {
+				showname = showname[:idx]
+			}
+			// Shorten if too long
+			if len(showname) > 25 {
+				showname = "..." + showname[len(showname)-22:]
+			}
+
+			if fs.done {
+				filePart = fmt.Sprintf("%s  %s  %s", cyan(showname), green("✔"), fmtbytesFn(int64(fs.totalSize)))
+			} else if fs.skipped {
+				filePart = fmt.Sprintf("%s  %s", cyan(showname), yellow("⏭ already on remote"))
+			} else if fs.failed {
+				filePart = fmt.Sprintf("%s  %s", cyan(showname), red("✖"))
+			} else if fs.lastPct != "" && fs.totalSize > 0 && fs.lastBytes > 0 {
+				pctVal := float64(fs.lastBytes) / float64(fs.totalSize) * 100
+				barW := 12
+				filled := int(pctVal / 100 * float64(barW))
+				if filled > barW {
+					filled = barW
+				}
+				bar := strings.Repeat("█", filled) + strings.Repeat("░", barW-filled)
+				eta := ""
+				rateVal := parseRate(fs.rate)
+				if rateVal > 0 {
+					remBytes := int64(fs.totalSize) - int64(fs.lastBytes)
+					if remBytes > 0 {
+						eta = " " + etaFn(remBytes, rateVal)
+					}
+				}
+				filePart = fmt.Sprintf("%s [%s] %s/%s  %s%s",
+					cyan(showname), bar,
+					fmtbytesFn(int64(fs.lastBytes)), fmtbytesFn(int64(fs.totalSize)),
+					fs.rate, eta)
+			} else if fs.totalSize > 0 && fs.lastBytes == 0 {
+				filePart = fmt.Sprintf("%s  %s/%s  %s",
+					cyan(showname),
+					fmtbytesFn(int64(fs.lastBytes)), fmtbytesFn(int64(fs.totalSize)),
+					fs.rate)
+			} else if fs.lastPct != "" {
+				filePart = fmt.Sprintf("%s  %s%%  %s",
+					cyan(showname), fs.lastPct, fs.rate)
+			}
+		}
+
+		// Part 2: overall progress bar with percentage
+		barwidth := 20
+		fill := 0
+		overallPct := 0.0
+		if totalFiles > 0 {
+			overallPct = float64(compl) / float64(totalFiles) * 100
+			fill = int(overallPct / 100 * float64(barwidth))
+			if fill < 0 {
+				fill = 0
+			}
+			if fill > barwidth {
+				fill = barwidth
+			}
+		}
+		barStr := fmt.Sprintf(dfmt, compl, totalFiles)
+		pctStr := fmt.Sprintf("(%d%%)", int(overallPct))
+		overallPart := fmt.Sprintf(" [%s%s] %s  %s", strings.Repeat("=", fill), strings.Repeat(" ", barwidth-fill), barStr, pctStr)
+
+		if skipped > 0 {
+			overallPart += yellow(fmt.Sprintf(" (%d skipped)", skipped))
+		}
+		if failed > 0 {
+			overallPart += red(fmt.Sprintf(" (%d failed)", failed))
+		}
+
+		overallRate := 0.0
+		if elapsed.Seconds() > 0 && overallBytes > 0 {
+			overallRate = float64(overallBytes) / elapsed.Seconds()
+		}
+		if overallRate <= 0 && fs != nil && fs.rate != "" {
+			overallRate = parseRate(fs.rate)
+		}
+
+		if overallRate > 0 {
+			overallPart += fmt.Sprintf("  %s/s", humanize.IBytes(uint64(overallRate)))
+			remaining := totalFiles - compl
+			if remaining < 0 {
+				remaining = 0
+			}
+			if remaining > 0 {
+				avgBytes := int64(0)
+				if completed > 0 {
+					avgBytes = overallBytes / int64(completed)
+				}
+				remBytes := avgBytes * int64(remaining)
+				eta := etaFn(remBytes, overallRate)
+				if eta != "" {
+					overallPart += fmt.Sprintf("  ETA %s", eta)
+				}
+			}
+		}
+
+		// Add elapsed time
+		timeStr := ""
+		if elapsed.Seconds() > 0 {
+			secs := int(elapsed.Seconds())
+			if secs < 60 {
+				timeStr = fmt.Sprintf(" [%ds]", secs)
+			} else if secs < 3600 {
+				timeStr = fmt.Sprintf(" [%dm %ds]", secs/60, secs%60)
+			} else {
+				timeStr = fmt.Sprintf(" [%dh %dm]", secs/3600, (secs%3600)/60)
+			}
+			overallPart += cyan(timeStr)
+		}
+
+		line := ""
+		if filePart != "" && overallPart != "" {
+			line = filePart + " ||" + overallPart
+		} else if filePart != "" {
+			line = filePart
+		} else {
+			line = overallPart
+		}
+
+		if lastLineLen > 0 {
+			fmt.Printf("\r%s\r", strings.Repeat(" ", lastLineLen))
+		}
+		fmt.Print("\r" + line)
+		lastLineLen = len(line)
+	}
+
+	// Main event loop: process status updates with periodic alive-signal refresh
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
+	var (
+		lastFname  string
+		lastFs     *fileState
+		waitingMsg string
+	)
+	for {
+		select {
+		case stat, ok := <-statuschan:
+			if !ok {
+				// Channel closed — upload done
+				renderDisplay(lastFname, lastFs, time.Since(startTime), completed+skipped+failed)
+				fmt.Println()
+				if completed == 0 && skipped == 0 && failed == 0 {
+					fmt.Println("   Nothing to upload")
+				}
+				return
+			}
+
+			if !firstData {
+				startTime = time.Now()
+				firstData = true
+				waitingMsg = ""
+			}
+
+			fname := stat.FileName
+			lastFname = fname
+
+			fs, ok := seen[fname]
+			if !ok {
+				fs = &fileState{}
+				seen[fname] = fs
+			}
+			lastFs = fs
+
+			if stat.Progress == "100%" {
+				if !fs.done && !fs.skipped {
+					fs.done = true
+					fs.lastPct = "100%"
+					fs.totalSize = stat.TotalSize
+					completed++
+					if stat.TotalSize > 0 {
+						overallBytes += int64(stat.TotalSize)
+					}
+					filesuccess[fname] = true
+				}
+			} else if stat.Progress == "skipped" {
+				if !fs.done && !fs.skipped {
+					fs.skipped = true
+					fs.note = stat.Note
+					skipped++
+					filesuccess[fname] = true
+				}
+			} else if stat.Err != nil {
+				if !fs.failed {
+					fs.failed = true
+					fs.note = stat.Err.Error()
+					failed++
+					filesuccess[fname] = false
+				}
+			} else {
+				// Progress update
+				fs.lastPct = stat.Progress
+				fs.lastBytes = stat.ByteProgress
+				fs.totalSize = stat.TotalSize
+				fs.rate = stat.Rate
+				fs.note = stat.Note
+			}
+
+			compl := completed + skipped + failed
+			renderDisplay(fname, fs, time.Since(startTime), compl)
+
+		case <-ticker.C:
+			if !firstData {
+				// Still waiting for first status — show alive indicator
+				waitingTime := time.Since(startTime)
+				if startTime.IsZero() {
+					startTime = time.Now()
+				}
+				secs := int(waitingTime.Seconds())
+				// Animate dots
+				dots := strings.Repeat(".", (secs%3)+1)
+				waitingMsg = fmt.Sprintf("\r   Preparing...%s  (%ds)", dots, secs)
+				if lastLineLen > 0 {
+					fmt.Printf("\r%s\r", strings.Repeat(" ", lastLineLen))
+				}
+				fmt.Print(yellow(waitingMsg))
+				lastLineLen = len(waitingMsg)
+			} else {
+				// Have data — refresh the display with updated elapsed time
+				compl := completed + skipped + failed
+				if compl < totalFiles {
+					renderDisplay(lastFname, lastFs, time.Since(startTime), compl)
+				}
+			}
+		}
+	}
+}
+
+// parseRate parses a human-readable rate like "12.3 MB/s" or "1.2 GB/s" back to bytes/sec
+func parseRate(rate string) float64 {
+	if rate == "" {
+		return 0
+	}
+	// rates look like: "12.3 MB/s" or "1.2 GiB/s"
+	parts := strings.SplitN(rate, " ", 2)
+	if len(parts) != 2 {
+		return 0
+	}
+	val := 0.0
+	fmt.Sscanf(parts[0], "%f", &val)
+
+	unit := parts[1]
+	if strings.HasPrefix(unit, "B") || strings.HasPrefix(unit, "byte") {
+		return val
+	} else if strings.HasPrefix(unit, "KiB") || strings.HasPrefix(unit, "KB") || strings.HasPrefix(unit, "kB") {
+		return val * 1024
+	} else if strings.HasPrefix(unit, "MiB") || strings.HasPrefix(unit, "MB") || strings.HasPrefix(unit, "mB") {
+		return val * 1024 * 1024
+	} else if strings.HasPrefix(unit, "GiB") || strings.HasPrefix(unit, "GB") || strings.HasPrefix(unit, "gB") {
+		return val * 1024 * 1024 * 1024
+	} else if strings.HasPrefix(unit, "TiB") || strings.HasPrefix(unit, "TB") {
+		return val * 1024 * 1024 * 1024 * 1024
+	}
+	return val
 }
 
 var wouter = wrap.NewWrapper()

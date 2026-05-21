@@ -1,4 +1,4 @@
-module github.com/G-Node/gin-cli
+module github.com/kylekahraman/gin
 
 go 1.12
 

@@ -3,9 +3,9 @@ package gincmd
 import (
 	"fmt"
 
-	ginclient "github.com/G-Node/gin-cli/ginclient"
-	"github.com/G-Node/gin-cli/gincmd/ginerrors"
-	"github.com/G-Node/gin-cli/git"
+	ginclient "github.com/kylekahraman/gin/ginclient"
+	"github.com/kylekahraman/gin/gincmd/ginerrors"
+	"github.com/kylekahraman/gin/git"
 	"github.com/spf13/cobra"
 )
 

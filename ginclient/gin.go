@@ -8,11 +8,11 @@ import (
 
 	"net/http"
 
-	"github.com/G-Node/gin-cli/ginclient/config"
-	"github.com/G-Node/gin-cli/ginclient/log"
-	"github.com/G-Node/gin-cli/git"
-	"github.com/G-Node/gin-cli/git/shell"
-	"github.com/G-Node/gin-cli/web"
+	"github.com/kylekahraman/gin/ginclient/config"
+	"github.com/kylekahraman/gin/ginclient/log"
+	"github.com/kylekahraman/gin/git"
+	"github.com/kylekahraman/gin/git/shell"
+	"github.com/kylekahraman/gin/web"
 	gogs "github.com/gogits/go-gogs-client"
 )
 

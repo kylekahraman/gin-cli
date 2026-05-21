@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/G-Node/gin-cli/ginclient/config"
-	"github.com/G-Node/gin-cli/ginclient/log"
-	"github.com/G-Node/gin-cli/git/shell"
+	"github.com/kylekahraman/gin/ginclient/config"
+	"github.com/kylekahraman/gin/ginclient/log"
+	"github.com/kylekahraman/gin/git/shell"
 )
 
 // The following appears in the 'note' field when a file is added to git
@@ -68,6 +68,25 @@ type AnnexFindRes struct {
 	Keyname      string
 	Bytesize     string
 	Mtime        string
+}
+
+// AnnexCountMissing counts annexed files in the working tree that are not yet present on the given remote.
+func AnnexCountMissing(paths []string, remote string) (count int, err error) {
+	args := []string{"find", "--not", "--in", remote}
+	if len(paths) > 0 {
+		args = append(args, paths...)
+	}
+	cmd := AnnexCommand(args...)
+	stdout, stderr, cerr := cmd.OutputError()
+	if cerr != nil {
+		return 0, fmt.Errorf("failed to count missing files: %s", string(stderr))
+	}
+	out := string(stdout)
+	if out == "" {
+		return 0, nil
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	return len(lines), nil
 }
 
 // AnnexWhereisRes holds the output of a "git annex whereis" command
@@ -324,6 +343,9 @@ func AnnexPush(paths []string, remote string, pushchan chan<- RepoFileStatus) {
 				continue
 			}
 			status.FileName = getresult.File
+			status.ByteProgress = 0
+			status.TotalSize = 0
+			status.Note = getresult.Note
 			if getresult.Success {
 				status.Progress = progcomplete
 				status.Err = nil
@@ -331,8 +353,14 @@ func AnnexPush(paths []string, remote string, pushchan chan<- RepoFileStatus) {
 				errmsg := getresult.Note
 				if strings.Contains(errmsg, "Unable to access") {
 					errmsg = "authorisation failed or remote storage unavailable"
+				} else if strings.Contains(errmsg, "already present") {
+					// File already exists on remote — not an error, just skipping
+					status.Progress = "skipped"
+					status.Err = nil
+					status.Note = "already on remote"
+				} else {
+					status.Err = fmt.Errorf("failed: %s", errmsg)
 				}
-				status.Err = fmt.Errorf("failed: %s", errmsg)
 			}
 		} else {
 			key := progress.Action.Key
@@ -347,6 +375,9 @@ func AnnexPush(paths []string, remote string, pushchan chan<- RepoFileStatus) {
 			}
 			// otherwise the same name as before is used
 			status.Progress = progress.PercentProgress
+			status.ByteProgress = progress.ByteProgress
+			status.TotalSize = progress.TotalSize
+			status.Note = ""
 
 			dbytes := progress.ByteProgress - prevByteProgress
 			now := time.Now()

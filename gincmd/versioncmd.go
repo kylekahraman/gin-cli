@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	ginclient "github.com/G-Node/gin-cli/ginclient"
-	"github.com/G-Node/gin-cli/gincmd/ginerrors"
-	"github.com/G-Node/gin-cli/git"
+	ginclient "github.com/kylekahraman/gin/ginclient"
+	"github.com/kylekahraman/gin/gincmd/ginerrors"
+	"github.com/kylekahraman/gin/git"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )

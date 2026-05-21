@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/G-Node/gin-cli/git"
+	"github.com/kylekahraman/gin/git"
 	"github.com/spf13/cobra"
 )
 

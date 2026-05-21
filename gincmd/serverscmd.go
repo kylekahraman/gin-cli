@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/G-Node/gin-cli/ginclient/config"
+	"github.com/kylekahraman/gin/ginclient/config"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )

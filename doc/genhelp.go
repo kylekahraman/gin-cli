@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/G-Node/gin-cli/gincmd"
+	"github.com/kylekahraman/gin/gincmd"
 	"github.com/alecthomas/template"
 	"github.com/bbrks/wrap"
 	"github.com/spf13/cobra"

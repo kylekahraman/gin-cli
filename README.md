@@ -1,22 +1,60 @@
-# GIN-CLI
+# gin
 
 [![GoDoc](https://godoc.org/github.com/G-Node/gin-cli?status.svg)](http://godoc.org/github.com/G-Node/gin-cli)
-[![Build status](https://ci.appveyor.com/api/projects/status/gu9peb10f9k8ed3d/branch/master?svg=true)](https://ci.appveyor.com/project/G-Node/gin-cli/branch/master)
 
----
+**Fork of [G-Node/gin-cli](https://github.com/G-Node/gin-cli) — the G-Node Infrastructure Command Line Client**
 
-**G**-Node **In**frastructure **C**ommand **L**ine **C**lient
+This is a fork focused on fixing the CLI experience. The original GIN server ([gin.g-node.org](https://gin.g-node.org)) is maintained by the G-Node team at LMU Munich — this fork only changes the command-line client.
 
-This package is a command line client for interfacing with repositories hosted on [GIN](https://gin.g-node.org).
-It offers a simplified interface for downloading and uploading files from repositories hosted on GIN.
+## What's different
 
-It consists of commands for interfacing with the GIN web API (e.g., listing repositories, creating repositories, managing SSH keys) but primarily, it wraps **git** and **git-annex** commands to make working with data repositories easier.
+- **Upload is like rsync** — no more "Adding file changes" / re-adding files every run. Upload only transfers data.
+- **Live progress display** — per-file progress bar, transfer rate, ETA, elapsed time
+- **`--dry-run` flag** — see how many files would be uploaded before actually doing it
+- **Resumable** — Ctrl+C at any time, re-run and it picks up where it left off
+- **No terminal spam** — file counting during add phase is a single counter, not 900 lines
+- **Better defaults** — upload skips the add/commit phase for already-tracked files
 
-## Information, setup, and guides
-For installation instructions see the [GIN Client Setup](https://gin.g-node.org/G-Node/Info/wiki/GIN+CLI+Setup) page.
+## Install
 
-General information, help, and guides for using GIN can be found on the [GIN Info Wiki](https://gin.g-node.org/G-Node/info/wiki).
-Help and information for the client in particular can be on the following pages:
-- [Usage guide (tutorial)](https://gin.g-node.org/G-Node/Info/wiki/GIN+CLI+Usage+Tutorial)
-- [Useful recipes and short workflows](https://gin.g-node.org/G-Node/Info/wiki/GIN+CLI+Recipes)
-- [Detailed command overview](https://gin.g-node.org/G-Node/Info/wiki/GIN+CLI+Help)
+```bash
+# Replace Homebrew's gin
+brew untap g-node/pkg
+# Build from source
+git clone https://github.com/kylekahraman/gin.git
+cd gin
+go build -o gin ./main.go
+cp gin /usr/local/bin/
+```
+
+Or use the prebuilt binary from [Releases](https://github.com/kylekahraman/gin/releases).
+
+## Usage
+
+```bash
+# See what would be uploaded
+gin upload --dry-run
+
+# Upload everything (skips add/commit if nothing changed)
+gin upload
+
+# Upload with specific paths
+gin upload .
+
+# Upload with progress for specific files
+gin upload data/subject_01/
+```
+
+## Why fork?
+
+The original [G-Node/gin-cli](https://github.com/G-Node/gin-cli) has been effectively unmaintained since 2021 — 74 open issues, 0 open pull requests, last code commit February 2023. The GIN server is still actively maintained by the G-Node team at LMU, but the CLI needed UX improvements that weren't coming.
+
+This fork keeps full compatibility with `gin.g-node.org` and adds:
+- Progress bars with ETA for uploads
+- No unnecessary re-adding of files on re-runs
+- Rsync-style resume (Ctrl+C safe)
+- Overall UX fixes from the open issues
+
+## License
+
+Same as the original — [MIT License](LICENSE).

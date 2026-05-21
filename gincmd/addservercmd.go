@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/G-Node/gin-cli/ginclient/config"
-	"github.com/G-Node/gin-cli/gincmd/ginerrors"
-	"github.com/G-Node/gin-cli/git"
+	"github.com/kylekahraman/gin/ginclient/config"
+	"github.com/kylekahraman/gin/gincmd/ginerrors"
+	"github.com/kylekahraman/gin/git"
 	"github.com/spf13/cobra"
 )
 

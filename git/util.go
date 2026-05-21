@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/G-Node/gin-cli/ginclient/log"
+	"github.com/kylekahraman/gin/ginclient/log"
 	humanize "github.com/dustin/go-humanize"
 )
 

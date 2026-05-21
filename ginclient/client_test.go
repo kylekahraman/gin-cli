@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/G-Node/gin-cli/ginclient/config"
-	"github.com/G-Node/gin-cli/git"
+	"github.com/kylekahraman/gin/ginclient/config"
+	"github.com/kylekahraman/gin/git"
 )
 
 func setupClient() {

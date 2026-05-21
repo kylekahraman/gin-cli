@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/G-Node/gin-cli/ginclient/log"
-	"github.com/G-Node/gin-cli/gincmd"
-	"github.com/G-Node/gin-cli/git"
+	"github.com/kylekahraman/gin/ginclient/log"
+	"github.com/kylekahraman/gin/gincmd"
+	"github.com/kylekahraman/gin/git"
 )
 
 // Version strings are populated using linker flags //

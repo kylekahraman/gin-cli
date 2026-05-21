@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/G-Node/gin-cli/ginclient/config"
-	"github.com/G-Node/gin-cli/ginclient/log"
-	"github.com/G-Node/gin-cli/git/shell"
+	"github.com/kylekahraman/gin/ginclient/config"
+	"github.com/kylekahraman/gin/ginclient/log"
+	"github.com/kylekahraman/gin/git/shell"
 )
 
 type Error string
@@ -50,6 +50,12 @@ type RepoFileStatus struct {
 	Progress string `json:"progress"`
 	// The data rate, if available.
 	Rate string `json:"rate"`
+	// Raw byte progress of the current file transfer
+	ByteProgress int `json:"byte-progress"`
+	// Total size of the current file being transferred
+	TotalSize int `json:"total-size"`
+	// Note from git-annex about this operation (e.g., "already present in remote")
+	Note string `json:"note,omitempty"`
 	// original cmd input
 	RawInput string `json:"rawinput"`
 	// original command output
@@ -551,6 +557,40 @@ func RevParse(rev string) (string, error) {
 		return "", gerr
 	}
 	return string(stdout), nil
+}
+
+// HasGitChanges returns true if there are any uncommitted changes
+// (modified, added, deleted, untracked) in the working tree.
+func HasGitChanges(paths []string) (bool, error) {
+	args := []string{"status", "--porcelain"}
+	if len(paths) > 0 {
+		args = append(args, paths...)
+	}
+	cmd := Command(args...)
+	stdout, stderr, err := cmd.OutputError()
+	if err != nil {
+		return false, giterror{UError: string(stderr), Origin: "HasGitChanges"}
+	}
+	return len(strings.TrimSpace(string(stdout))) > 0, nil
+}
+
+// UntrackedFiles returns the list of files that git does not know about
+// (not tracked, not ignored) under the given paths.
+func UntrackedFiles(paths []string) ([]string, error) {
+	args := []string{"ls-files", "--others", "--exclude-standard"}
+	if len(paths) > 0 {
+		args = append(args, paths...)
+	}
+	cmd := Command(args...)
+	stdout, stderr, err := cmd.OutputError()
+	if err != nil {
+		return nil, giterror{UError: string(stderr), Origin: "UntrackedFiles"}
+	}
+	out := strings.TrimSpace(string(stdout))
+	if out == "" {
+		return nil, nil
+	}
+	return strings.Split(out, "\n"), nil
 }
 
 // Checkwd checks whether the current working directory is in a git repository.

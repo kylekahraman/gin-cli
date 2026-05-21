@@ -3,7 +3,7 @@ package gincmd
 import (
 	"fmt"
 
-	ginclient "github.com/G-Node/gin-cli/ginclient"
+	ginclient "github.com/kylekahraman/gin/ginclient"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )

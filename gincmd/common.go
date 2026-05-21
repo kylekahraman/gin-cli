@@ -421,8 +421,6 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 		firstData    bool
 	)
 
-	// Track the currently-displayed line length for \r clearing
-	lastLineLen := 0
 
 	fmtbytesFn := func(b int64) string {
 		if b < 0 {
@@ -579,11 +577,7 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 			line = overallPart
 		}
 
-		if lastLineLen > 0 {
-			fmt.Printf("\r%s\r", strings.Repeat(" ", lastLineLen))
-		}
-		fmt.Print("\r" + line)
-		lastLineLen = len(line)
+		fmt.Print("\033[2K\r" + line)
 	}
 
 	// Main event loop: process status updates with periodic alive-signal refresh
@@ -672,11 +666,8 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 				// Animate dots
 				dots := strings.Repeat(".", (secs%3)+1)
 				waitingMsg = fmt.Sprintf("\r   Preparing...%s  (%ds)", dots, secs)
-				if lastLineLen > 0 {
-					fmt.Printf("\r%s\r", strings.Repeat(" ", lastLineLen))
-				}
+				fmt.Print("\033[2K\r")
 				fmt.Print(yellow(waitingMsg))
-				lastLineLen = len(waitingMsg)
 			} else {
 				// Have data — refresh the display with updated elapsed time
 				compl := completed + skipped + failed

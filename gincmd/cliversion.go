@@ -40,7 +40,7 @@ func (v *VersionInfo) String() string {
 		}
 	}
 
-	return fmt.Sprintf("GIN command line client %s Build %s (%s)\n  git: %s\n  git-annex: %s", v.Version, v.Build, v.Commit, gitver, annexver)
+	return fmt.Sprintf("GIN command line client %s Build %s (%s)\n  git: %s\n  git-annex: %s\n  log: ~/.gin/log", v.Version, v.Build, v.Commit, gitver, annexver)
 }
 
 // GitOK checks if git runs and returns an understandable version string.

@@ -437,6 +437,24 @@ func etaFromRate(remBytes int64, rate float64) string {
 	return fmt.Sprintf("%dh%02dm", hrs, mins)
 }
 
+// etaFromSecs formats seconds to ETA string.
+func etaFromSecs(secs int) string {
+	if secs < 1 {
+		return ""
+	}
+	if secs < 60 {
+		return fmt.Sprintf("%ds", secs)
+	}
+	mins := secs / 60
+	secs = secs % 60
+	if mins < 60 {
+		return fmt.Sprintf("%dm%02ds", mins, secs)
+	}
+	hrs := mins / 60
+	mins = mins % 60
+	return fmt.Sprintf("%dh%02dm", hrs, mins)
+}
+
 // truncName shortens a filename for display, keeping the extension visible.
 func truncName(name string, maxLen int) string {
 	if idx := strings.Index(name, " (version: "); idx > 0 {
@@ -552,12 +570,12 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 				speedStr = fmt.Sprintf("%s/s", humanize.IBytes(uint64(overallRate)))
 			}
 			etaStr := ""
-			if overallRate > 0 && completed > 0 {
+			if compl > 0 && elapsed.Seconds() > 1 {
+				fileRate := float64(compl) / elapsed.Seconds()
 				remaining := totalFiles - compl
-				if remaining > 0 {
-					avgBytes := overallBytes / int64(completed)
-					remBytes := avgBytes * int64(remaining)
-					etaStr = etaFromRate(remBytes, overallRate)
+				if remaining > 0 && fileRate > 0 {
+					etaSecs := int(float64(remaining) / fileRate)
+					etaStr = etaFromSecs(etaSecs)
 					if etaStr != "" {
 						etaStr = "ETA " + etaStr
 					}

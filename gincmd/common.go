@@ -536,7 +536,8 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 		overallPart := ""
 		if totalFiles > 0 && compl > 0 {
 			overallPct := float64(compl) / float64(totalFiles) * 100
-			countStr := fmt.Sprintf("%d/%d", compl, totalFiles)
+			ndigits := len(fmt.Sprintf("%d", totalFiles))
+			countStr := fmt.Sprintf("%*d/%d", ndigits, compl, totalFiles)
 
 			// Compute overall rate
 			overallRate := float64(0)
@@ -545,7 +546,7 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 			}
 
 			// Build suffix elements
-			pctStr := fmt.Sprintf("%d%%", int(overallPct))
+			pctStr := fmt.Sprintf("%3d%%", int(overallPct))
 			speedStr := ""
 			if overallRate > 0 {
 				speedStr = fmt.Sprintf("%s/s", humanize.IBytes(uint64(overallRate)))
@@ -564,35 +565,16 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 			}
 			elapsedStr := fmtDuration(elapsed)
 
-			// Dynamic bar width: compute what's left after fixed elements
-			// Fixed: " ██████░░ " (bar + 2 spaces) + pct + " " + count + speed + eta + elapsed
-			suffixLen := 2 // spaces around bar
-			for _, s := range []string{pctStr, countStr, speedStr, etaStr, elapsedStr} {
-				if s != "" {
-					suffixLen += len(s) + 1 // +1 for separator space
-				}
+			// Fixed bar width — no jitter from changing suffix widths
+			const fbarW = 20
+			fill := int(overallPct / 100 * float64(fbarW))
+			if fill > fbarW {
+				fill = fbarW
 			}
-
-			// Reserve space for file part + " ||" separator
-			filePartWidth := 0
-			if filePart != "" {
-				filePartWidth = lineLen(filePart)
+			if fill < 0 {
+				fill = 0
 			}
-			sepLen := 0
-			if filePart != "" && overallPart != "" {
-				sepLen = 4 // " || "
-			}
-
-			barW := width - filePartWidth - sepLen - suffixLen - 1
-			if barW < 4 {
-				barW = 4
-			}
-			if barW > 40 {
-				barW = 40
-			}
-
-			fill := int(overallPct / 100 * float64(barW))
-			bar := makeBar(fill, barW)
+			bar := makeBar(fill, fbarW)
 
 			// Assemble overall part
 			var parts []string

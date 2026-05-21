@@ -35,8 +35,8 @@ func TestPrintUploadProgress_NothingToUpload(t *testing.T) {
 		printUploadProgress(ch, 0)
 	})
 
-	if !strings.Contains(output, "Nothing to upload") {
-		t.Errorf("Expected 'Nothing to upload' message, got: %q", output)
+	if !strings.Contains(output, "already on remote") {
+		t.Errorf("Expected 'already on remote' message, got: %q", output)
 	}
 }
 
@@ -71,9 +71,11 @@ func TestPrintUploadProgress_AllSkipped(t *testing.T) {
 		printUploadProgress(ch, 3)
 	})
 
-	if !strings.Contains(output, "already on remote") {
-		t.Errorf("Expected 'already on remote' in output, got: %q", output)
+	// Should show checkmark for each skipped file
+	if !strings.Contains(output, "✓") {
+		t.Errorf("Expected checkmark for skipped files, got: %q", output)
 	}
+	// Should show skipped count
 	if !strings.Contains(output, "3 skipped") {
 		t.Errorf("Expected '3 skipped' count, got: %q", output)
 	}

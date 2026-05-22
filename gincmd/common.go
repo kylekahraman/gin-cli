@@ -583,6 +583,10 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 			}
 			elapsedStr := fmtDuration(elapsed)
 
+			// Cap completed at totalFiles for display, expand totalFiles if exceeded
+			if compl > totalFiles {
+				totalFiles = compl
+			}
 			// Fixed bar width — no jitter from changing suffix widths
 			const fbarW = 20
 			fill := int(overallPct / 100 * float64(fbarW))

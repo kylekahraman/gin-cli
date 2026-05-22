@@ -518,6 +518,10 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 		filePart := ""
 		if fname != "" && fs != nil {
 			showname := truncName(fname, 25)
+			// Pad to fixed width so the || separator and everything after stays at same position
+			if l := lineLen(showname); l < 25 {
+				showname += strings.Repeat(" ", 25-l)
+			}
 
 			switch {
 			case fs.done:

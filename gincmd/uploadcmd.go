@@ -87,6 +87,15 @@ func upload(cmd *cobra.Command, args []string) {
 	default:
 		printUploadProgress(uploadchan, totalToUpload)
 	}
+
+	// Sync git-annex branch to persist location tracking
+	// (so next AnnexCountMissing knows files are already on remote)
+	if err := git.AnnexSync(false); err != nil {
+		// Non-fatal: upload succeeded, location sync is best-effort
+		if prStyle != psJSON {
+			fmt.Fprintf(os.Stderr, "  Note: could not sync location tracking: %s\n", err)
+		}
+	}
 }
 
 func UploadCmd() *cobra.Command {

@@ -78,8 +78,24 @@ func upload(cmd *cobra.Command, args []string) {
 		return
 	}
 
+	// Get list of actually missing files (not all 800+ files)
+	// so git annex copy only processes files that need transfer
+	var missingFiles []string
+	for _, remote := range remotes {
+		files, err := git.AnnexListMissing(paths, remote)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "  Warning: could not list missing files for remote %q: %s\n", remote, err)
+			continue
+		}
+		missingFiles = append(missingFiles, files...)
+	}
+	if len(missingFiles) == 0 {
+		fmt.Println("   All files already on remote — nothing to transfer")
+		return
+	}
+	totalToUpload = len(missingFiles)
 	uploadchan := make(chan git.RepoFileStatus)
-	go gincl.Upload(paths, remotes, uploadchan)
+	go gincl.Upload(missingFiles, remotes, uploadchan)
 
 	switch prStyle {
 	case psJSON:

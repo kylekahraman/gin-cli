@@ -89,6 +89,43 @@ func AnnexCountMissing(paths []string, remote string) (count int, err error) {
 	return len(lines), nil
 }
 
+// AnnexCountAll returns the total number of files tracked by git-annex in the given paths.
+func AnnexCountAll(paths []string) (count int, err error) {
+	args := []string{"find"}
+	if len(paths) > 0 {
+		args = append(args, paths...)
+	}
+	cmd := AnnexCommand(args...)
+	stdout, stderr, cerr := cmd.OutputError()
+	if cerr != nil {
+		return 0, fmt.Errorf("failed to count annex files: %s", string(stderr))
+	}
+	out := string(stdout)
+	if out == "" {
+		return 0, nil
+	}
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	return len(lines), nil
+}
+
+// AnnexListMissing returns the list of files not present on the given remote.
+func AnnexListMissing(paths []string, remote string) ([]string, error) {
+	args := []string{"find", "--not", "--in", remote}
+	if len(paths) > 0 {
+		args = append(args, paths...)
+	}
+	cmd := AnnexCommand(args...)
+	stdout, stderr, cerr := cmd.OutputError()
+	if cerr != nil {
+		return nil, fmt.Errorf("failed to list missing files: %s", string(stderr))
+	}
+	out := strings.TrimSpace(string(stdout))
+	if out == "" {
+		return nil, nil
+	}
+	return strings.Split(out, "\n"), nil
+}
+
 // AnnexWhereisRes holds the output of a "git annex whereis" command
 type AnnexWhereisRes struct {
 	File      string   `json:"file"`

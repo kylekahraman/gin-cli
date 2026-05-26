@@ -506,6 +506,7 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 		startTime    time.Time
 		overallBytes int64
 		firstData    bool
+		lastErrMsg   string
 	)
 
 	// buildLine assembles a single-line display for the current transfer state.
@@ -620,12 +621,19 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 			overallPart = " " + strings.Join(parts, " ")
 		}
 
-		// Add skipped/failed summary
+		// Add skipped/failed summary with last error message
 		if skipped > 0 {
 			overallPart += yellow(fmt.Sprintf(" %d skipped", skipped))
 		}
 		if failed > 0 {
 			overallPart += red(fmt.Sprintf(" %d failed", failed))
+			if lastErrMsg != "" {
+				// Truncate long errors to keep line readable
+				if len(lastErrMsg) > 40 {
+					lastErrMsg = lastErrMsg[:37] + "..."
+				}
+				overallPart += red(" [" + lastErrMsg + "]")
+			}
 		}
 
 		// Combine
@@ -653,8 +661,8 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 	defer ticker.Stop()
 
 	var (
-		lastFname string
-		lastFs    *fileState
+		lastFname  string
+		lastFs     *fileState
 	)
 	for {
 		select {

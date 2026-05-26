@@ -380,6 +380,13 @@ func AnnexPush(paths []string, remote string, pushchan chan<- RepoFileStatus) {
 				continue
 			}
 			status.FileName = getresult.File
+			if status.FileName == "" && currentkey != "" {
+				if md := getAnnexMetadataName(currentkey); md.FileName != "" {
+					status.FileName = md.FileName
+				} else {
+					status.FileName = fmt.Sprintf("<key: %s>", currentkey)
+				}
+			}
 			status.ByteProgress = 0
 			status.TotalSize = 0
 			status.Note = getresult.Note
@@ -396,7 +403,7 @@ func AnnexPush(paths []string, remote string, pushchan chan<- RepoFileStatus) {
 					status.Err = nil
 					status.Note = "already on remote"
 				} else {
-					status.Err = fmt.Errorf("failed: %s", errmsg)
+					status.Err = fmt.Errorf("failed: %s [raw: %s]", errmsg, strings.TrimSpace(string(outline)))
 				}
 			}
 		} else {

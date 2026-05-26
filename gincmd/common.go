@@ -525,7 +525,7 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 
 			switch {
 			case fs.done:
-				filePart = fmt.Sprintf("%s  %s  %s", green(showname), green("✔"), fmtbytes(int64(fs.totalSize)))
+				filePart = fmt.Sprintf("%s  %s  %s", green(showname), green("✔"), fmt.Sprintf("%10s", fmtbytes(int64(fs.totalSize))))
 			case fs.skipped:
 				filePart = fmt.Sprintf("%s  %s", cyan(showname), green("✓"))
 			case fs.failed:
@@ -546,8 +546,9 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 				}
 				filePart = fmt.Sprintf("%s %s %s/%s %s%s",
 					cyan(showname), bar,
-					fmtbytes(int64(fs.lastBytes)), fmtbytes(int64(fs.totalSize)),
-					fs.rate, eta)
+					fmt.Sprintf("%10s", fmtbytes(int64(fs.lastBytes))),
+					fmt.Sprintf("%-10s", fmtbytes(int64(fs.totalSize))),
+					fmt.Sprintf("%10s", fs.rate), eta)
 			default:
 				// Starting or minimal info
 				filePart = cyan(showname)
@@ -571,7 +572,7 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 			pctStr := fmt.Sprintf("%3d%%", int(overallPct))
 			speedStr := ""
 			if overallRate > 0 {
-				speedStr = fmt.Sprintf("%s/s", humanize.IBytes(uint64(overallRate)))
+				speedStr = fmt.Sprintf("%12s/s", humanize.IBytes(uint64(overallRate)))
 			}
 			etaStr := ""
 			if compl > 0 && elapsed.Seconds() > 1 {
@@ -581,11 +582,11 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 					etaSecs := int(float64(remaining) / fileRate)
 					etaStr = etaFromSecs(etaSecs)
 					if etaStr != "" {
-						etaStr = "ETA " + etaStr
+						etaStr = fmt.Sprintf("%-9s", "ETA "+etaStr)
 					}
 				}
 			}
-			elapsedStr := fmtDuration(elapsed)
+			elapsedStr := fmt.Sprintf("%9s", fmtDuration(elapsed))
 
 			// Cap completed at totalFiles for display, expand totalFiles if exceeded
 			if compl > totalFiles {

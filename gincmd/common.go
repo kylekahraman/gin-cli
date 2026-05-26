@@ -544,7 +544,7 @@ func printUploadProgress(statuschan <-chan git.RepoFileStatus, totalFiles int) (
 						eta = " " + etaFromRate(remBytes, rate)
 					}
 				}
-				filePart = fmt.Sprintf("%s %s %s/%s %s%s",
+				filePart = fmt.Sprintf("%s %s %s/%s %s%8s",
 					cyan(showname), bar,
 					fmt.Sprintf("%10s", fmtbytes(int64(fs.lastBytes))),
 					fmt.Sprintf("%-10s", fmtbytes(int64(fs.totalSize))),
